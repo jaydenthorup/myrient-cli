@@ -1,0 +1,44 @@
+# Binaries
+/builds/
+/dist/
+/bin/
+/*.exe
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go stuff
+*.test
+*.out
+*.log
+/go.sum
+/go.work
+go.work.sum
+
+# Go build cache
+**/vendor/
+/pkg/
+/.coverage
+
+# Dependency directories (node/npm for semantic-release)
+node_modules/
+package-lock.json
+
+# Local environment
+.env
+.env.*
+
+# Editors & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Install scripts output (temp)
+install.sh.bak
+install.ps1.bak
+
+.downloads
