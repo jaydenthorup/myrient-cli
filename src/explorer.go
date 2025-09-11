@@ -180,7 +180,10 @@ func ShowGames(games []GameEntry) {
 				queued := 0
 				fmt.Printf("\nSummary: Attempted to queue %d games.\n\n", attempted)
 				for _, game := range filtered {
-					if !downloaded[game.Title] {
+					downloadedMutex.Lock()
+					already := downloaded[game.Title]
+					downloadedMutex.Unlock()
+					if !already {
 						fmt.Printf("📥 Queued for download: %s\n", game.Title)
 						downloadQueue <- game
 						queued++
@@ -198,8 +201,15 @@ func ShowGames(games []GameEntry) {
 			// attempt to parse number
 			index, err := strconv.Atoi(cmd)
 			if err == nil && index >= 0 && index < len(filtered) {
-				fmt.Printf("📥 Queued for download: %s\n", filtered[index].Title)
-				downloadQueue <- filtered[index]
+				downloadedMutex.Lock()
+				already := downloaded[filtered[index].Title]
+				downloadedMutex.Unlock()
+				if !already {
+					fmt.Printf("📥 Queued for download: %s\n", filtered[index].Title)
+					downloadQueue <- filtered[index]
+				} else {
+					fmt.Printf("⚠️  Already downloading: %s\n", filtered[index].Title)
+				}
 			} else {
 				fmt.Println("Invalid command or index.")
 			}
