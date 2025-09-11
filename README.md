@@ -67,6 +67,34 @@ The CLI will walk you through:
 ---
 
 ## 🆕 Improvements
+- Regex filtering for advanced search
+- Sequential download queue (no more concurrency errors)
+- Clear summary messages after queuing downloads
+- All map accesses are now concurrency-safe
+
+---
+
+## 🔍 Regex Filter Guide
+
+You can use regular expressions to filter game titles in the CLI:
+
+- Enter a regex pattern to match titles (e.g. `^Halo.*USA`)
+- Use `|` for OR (e.g. `Mario|Zelda`)
+- Use `(?i)` for case-insensitive matching (e.g. `(?i)halo`)
+- To match titles containing both "halo" and "usa" in any order: `(?i).*halo.*usa.*|.*usa.*halo.*`
+- Leave the filter empty to reset and show all games
+
+**Examples:**
+
+| Pattern                | Matches                        |
+|------------------------|--------------------------------|
+| `Mario|Zelda`          | Titles with "Mario" or "Zelda" |
+| `^Super`               | Titles starting with "Super"   |
+| `64$`                  | Titles ending with "64"        |
+| `(?i)halo`             | Any case "halo"                |
+| `(?i).*halo.*usa.*`    | Titles with both "halo" and "usa" |
+
+If your regex is invalid, the filter will fall back to a simple substring search.
 
 - Regex filtering for advanced search
 - Sequential download queue (no more concurrency errors)
