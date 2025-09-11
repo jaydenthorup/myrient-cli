@@ -7,9 +7,10 @@
 ## ✨ Features
 
 - Interactive menu to select a gaming platform (PS2, GameCube, Dreamcast, etc.)
-- Live search/filter by game title
+- Live search/filter by game title, with regex support
 - Paginated browsing
-- Download multiple games simultaneously
+- Queue and download games sequentially for reliability
+- Summary messages for queued downloads
 - Pretty progress bars (download + unzip)
 - Automatic `.zip` extraction and cleanup
 - Customizable download directory
@@ -58,10 +59,19 @@ From terminal:
 The CLI will walk you through:
 
 1. Selecting a platform
-2. Filtering titles
+2. Filtering titles (supports regex: e.g. `(?i)halo.*usa`)
 3. Browsing the game list (with pagination)
-4. Queuing downloads
+4. Queuing downloads (all, or by number)
 5. Watching progress as files are downloaded and extracted
+6. Viewing summary messages for queued downloads
+---
+
+## 🆕 Improvements
+
+- Regex filtering for advanced search
+- Sequential download queue (no more concurrency errors)
+- Clear summary messages after queuing downloads
+- All map accesses are now concurrency-safe
 
 ---
 
