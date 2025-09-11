@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"net/http"
+	"regexp"
+	"sync"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -61,11 +63,21 @@ func FilterGamesByTitle(games []GameEntry, query string) []GameEntry {
 	}
 
 	var filtered []GameEntry
-	query = strings.ToLower(query)
 
-	for _, g := range games {
-		if strings.Contains(strings.ToLower(g.Title), query) {
-			filtered = append(filtered, g)
+	// Try to compile as regex, fallback to substring if invalid
+	re, err := regexp.Compile(query)
+	if err == nil {
+		for _, g := range games {
+			if re.MatchString(g.Title) {
+				filtered = append(filtered, g)
+			}
+		}
+	} else {
+		q := strings.ToLower(query)
+		for _, g := range games {
+			if strings.Contains(strings.ToLower(g.Title), q) {
+				filtered = append(filtered, g)
+			}
 		}
 	}
 
@@ -93,17 +105,24 @@ func ShowGames(games []GameEntry) {
 	page := 0
 
 	downloaded := make(map[string]bool)
+	var downloadedMutex sync.Mutex
 	downloadQueue := make(chan GameEntry, 10) // concurrent-safe
 
-	// start background downloader worker
+	// start single background downloader worker
 	go func() {
 		for game := range downloadQueue {
-			if downloaded[game.Title] {
+			downloadedMutex.Lock()
+			already := downloaded[game.Title]
+			if !already {
+				downloaded[game.Title] = true
+			}
+			downloadedMutex.Unlock()
+			if already {
 				fmt.Printf("⚠️  Already downloading: %s\n", game.Title)
 				continue
 			}
-			downloaded[game.Title] = true
 			DownloadAndExtract(game)
+			// Do not call WaitForProgress() here; call it once after all downloads are queued if needed
 		}
 	}()
 
@@ -125,7 +144,14 @@ func ShowGames(games []GameEntry) {
 			}
 		}
 
-		fmt.Println("\n(n)ext page, (p)revious page, (f)ilter, (q)uit, or enter number to download:")
+		// Show regex filter instructions
+		fmt.Println("\nRegex filter tips:")
+		fmt.Println("  - Enter a regex pattern to match titles (e.g. ^Halo.*USA)")
+		fmt.Println("  - Use | for OR (e.g. Mario|Zelda)")
+		fmt.Println("  - Use (?i) for case-insensitive (e.g. (?i)halo)")
+		fmt.Println("  - Leave empty to reset filter")
+
+		fmt.Println("\n(n)ext page, (p)revious page, (f)ilter, (a)ll, (q)uit, or enter number to download:")
 		fmt.Print("> ")
 		cmd, _ := reader.ReadString('\n')
 		cmd = strings.TrimSpace(strings.ToLower(cmd))
@@ -144,11 +170,27 @@ func ShowGames(games []GameEntry) {
 				fmt.Println("Already at the first page.")
 			}
 		case "f":
-			fmt.Print("Enter filter (empty to reset): ")
+			fmt.Print("Enter filter (supports regex, empty to reset): ")
 			query, _ = reader.ReadString('\n')
 			query = strings.TrimSpace(query)
 			filtered = FilterGamesByTitle(games, query)
 			page = 0
+			case "a":
+				attempted := len(filtered)
+				queued := 0
+				fmt.Printf("\nSummary: Attempted to queue %d games.\n\n", attempted)
+				for _, game := range filtered {
+					if !downloaded[game.Title] {
+						fmt.Printf("📥 Queued for download: %s\n", game.Title)
+						downloadQueue <- game
+						queued++
+					}
+				}
+				if queued == 0 {
+					fmt.Println("No new games to queue for download.")
+				} else {
+					fmt.Printf("Queued %d new games for download.\n", queued)
+				}
 		case "q":
 			close(downloadQueue)
 			return
