@@ -23,7 +23,6 @@ func ensureDirExists(path string) error {
 }
 
 func DownloadAndExtract(game GameEntry) {
-	go func() {
 		dir := getDownloadDir()
 		err := ensureDirExists(dir)
 		if err != nil {
@@ -77,7 +76,6 @@ func DownloadAndExtract(game GameEntry) {
 		}
 
 		os.Remove(zipPath)
-	}()
 }
 
 func trimTitle(title string) string {
