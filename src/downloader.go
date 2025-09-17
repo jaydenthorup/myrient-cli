@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-var httpClient = &http.Client{Timeout: 2 * time.Minute}
+var httpClient = &http.Client{Timeout: 30 * time.Minute}
 var downloadedLogPath = "downloaded.log"
 
 func getDownloadDir() string {
