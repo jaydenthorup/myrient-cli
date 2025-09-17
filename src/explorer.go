@@ -2,12 +2,14 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
+	"net/http"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
-	"net/http"
-	"regexp"
 	"sync"
 
 	"github.com/PuerkitoBio/goquery"
@@ -96,6 +98,44 @@ func PaginateGames(games []GameEntry, page int, pageSize int) []GameEntry {
 	return games[start:end]
 }
 
+func loadDownloadedLog() map[string]bool {
+	downloaded := make(map[string]bool)
+	file, err := os.Open(downloadedLogPath)
+	if err != nil {
+		return downloaded
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		downloaded[scanner.Text()] = true
+	}
+	return downloaded
+}
+
+// Update isGameDownloaded to check downloaded log
+func isGameDownloaded(game GameEntry) bool {
+	downloaded := loadDownloadedLog()
+	if downloaded[game.Title] {
+		return true
+	}
+	dir := getDownloadDir()
+	zipPath := filepath.Join(dir, sanitizeFilename(game.Title))
+	partPath := zipPath + ".part"
+	// If zip or extracted folder exists, consider as downloaded
+	if _, err := os.Stat(zipPath); err == nil {
+		return true
+	}
+	if _, err := os.Stat(partPath); err == nil {
+		return false // partial file, not complete
+	}
+	// Check for extracted folder
+	extractDir := filepath.Join(dir, strings.TrimSuffix(sanitizeFilename(game.Title), ".zip"))
+	if fi, err := os.Stat(extractDir); err == nil && fi.IsDir() {
+		return true
+	}
+	return false
+}
+
 func ShowGames(games []GameEntry) {
 	const pageSize = 50
 	reader := bufio.NewReader(os.Stdin)
@@ -111,18 +151,17 @@ func ShowGames(games []GameEntry) {
 	// start single background downloader worker
 	go func() {
 		for game := range downloadQueue {
+			if isGameDownloaded(game) {
+				fmt.Printf("⚠️  Already downloaded: %s\n", game.Title)
+				continue
+			}
 			downloadedMutex.Lock()
 			already := downloaded[game.Title]
 			if !already {
 				downloaded[game.Title] = true
 			}
 			downloadedMutex.Unlock()
-			if already {
-				fmt.Printf("⚠️  Already downloading: %s\n", game.Title)
-				continue
-			}
-			DownloadAndExtract(game)
-			// Do not call WaitForProgress() here; call it once after all downloads are queued if needed
+			DownloadAndExtract(context.Background(), game)
 		}
 	}()
 
@@ -175,25 +214,28 @@ func ShowGames(games []GameEntry) {
 			query = strings.TrimSpace(query)
 			filtered = FilterGamesByTitle(games, query)
 			page = 0
-			case "a":
-				attempted := len(filtered)
-				queued := 0
-				fmt.Printf("\nSummary: Attempted to queue %d games.\n\n", attempted)
-				for _, game := range filtered {
-					downloadedMutex.Lock()
-					already := downloaded[game.Title]
-					downloadedMutex.Unlock()
-					if !already {
-						fmt.Printf("📥 Queued for download: %s\n", game.Title)
-						downloadQueue <- game
-						queued++
-					}
+		case "a":
+			attempted := len(filtered)
+			queued := 0
+			fmt.Printf("\nSummary: Attempted to queue %d games.\n\n", attempted)
+			for _, game := range filtered {
+				if isGameDownloaded(game) {
+					continue
 				}
-				if queued == 0 {
-					fmt.Println("No new games to queue for download.")
-				} else {
-					fmt.Printf("Queued %d new games for download.\n", queued)
+				downloadedMutex.Lock()
+				already := downloaded[game.Title]
+				downloadedMutex.Unlock()
+				if !already {
+					fmt.Printf("📥 Queued for download: %s\n", game.Title)
+					downloadQueue <- game
+					queued++
 				}
+			}
+			if queued == 0 {
+				fmt.Println("No new games to queue for download.")
+			} else {
+				fmt.Printf("Queued %d new games for download.\n", queued)
+			}
 		case "q":
 			close(downloadQueue)
 			return
@@ -201,6 +243,10 @@ func ShowGames(games []GameEntry) {
 			// attempt to parse number
 			index, err := strconv.Atoi(cmd)
 			if err == nil && index >= 0 && index < len(filtered) {
+				if isGameDownloaded(filtered[index]) {
+					fmt.Printf("⚠️  Already downloaded: %s\n", filtered[index].Title)
+					continue
+				}
 				downloadedMutex.Lock()
 				already := downloaded[filtered[index].Title]
 				downloadedMutex.Unlock()
@@ -216,7 +262,6 @@ func ShowGames(games []GameEntry) {
 		}
 	}
 }
-
 
 func min(a, b int) int {
 	if a < b {
