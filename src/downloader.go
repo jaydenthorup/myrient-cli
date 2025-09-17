@@ -35,6 +35,10 @@ func logDownloaded(gameTitle string) {
 	}
 }
 
+func ClearLoggedDownloads() error {
+	return os.Remove(downloadedLogPath)
+}
+
 func DownloadAndExtract(ctx context.Context, game GameEntry) {
 	dir := getDownloadDir()
 	err := ensureDirExists(dir)

@@ -236,6 +236,13 @@ func ShowGames(games []GameEntry) {
 			} else {
 				fmt.Printf("Queued %d new games for download.\n", queued)
 			}
+		case "clearlog":
+			err := ClearLoggedDownloads()
+			if err != nil {
+				fmt.Println("Failed to clear downloaded.log:", err)
+			} else {
+				fmt.Println("✅ downloaded.log cleared.")
+			}
 		case "q":
 			close(downloadQueue)
 			return
